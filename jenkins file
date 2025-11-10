@@ -1,0 +1,64 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "frontend-app"
+        CONTAINER_NAME = "frontend-container"
+        PORT = "3000"
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                echo 'Cloning repository...'
+                git branch: 'main', url: 'https://github.com/Reagan-m/frontend.git'
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                echo 'Installing NPM packages...'
+                sh 'npm install'
+            }
+        }
+
+        stage('Build Project') {
+            steps {
+                echo 'Building the frontend project...'
+                sh 'npm run build'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo 'Building Docker image...'
+                sh 'docker build -t $IMAGE_NAME .'
+            }
+        }
+
+        stage('Deploy Container') {
+            steps {
+                echo 'Deploying Docker container...'
+                sh '''
+                # Stop and remove old container if exists
+                if [ "$(docker ps -q -f name=$CONTAINER_NAME)" ]; then
+                    docker stop $CONTAINER_NAME
+                    docker rm $CONTAINER_NAME
+                fi
+
+                # Run new container
+                docker run -d --name $CONTAINER_NAME -p $PORT:$PORT $IMAGE_NAME
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Deployment successful! Access app at: http://<EC2-PUBLIC-IP>:$PORT"
+        }
+        failure {
+            echo "❌ Build or deployment failed!"
+        }
+    }
+}
